@@ -4,8 +4,6 @@ const bodyParser = require('body-parser');
 const axios = require('axios');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const ping = require('ping');
-let pings;
 const yaml = require('js-yaml');
 
 const words = yaml.load(fs.readFileSync('words.yml', 'utf8'));
@@ -19,7 +17,7 @@ const data = fs.readFileSync('pengaturan.json', 'utf8');
 const variables = JSON.parse(data);
 let flagisgroup = false;
 
-const { nomor_tujuan, id_group, endpoint, log_group } = variables;
+const { nomor_tujuan, id_admin, endpoint, log_group } = variables;
 let pengirim = "";
 let incomingMessages = "";
 
@@ -80,7 +78,7 @@ whatsapp.on('message', async msg => {
         }
     }
 
-    if (incomingMessages.includes("!bot") && chat.isGroup && pengirim == id_group) {
+    if (incomingMessages.includes("!bot") && chat.isGroup) {
         console.log("Pesan Grup: " + incomingMessages + "\n");
         if (incomingMessages.includes('server')) {
             await prosesDataServer();
@@ -92,7 +90,7 @@ whatsapp.on('message', async msg => {
             await kirimAllplayers();
         }
 
-        else if (incomingMessages.includes("!bot exec") && pengirim == id_group) {
+        else if (incomingMessages.includes("!bot exec") && pengirim == id_admin) {
             const command = incomingMessages.replace("!bot exec ", "").trim();
             try {
                 const ip = endpoint;
@@ -193,18 +191,6 @@ whatsapp.on('call', async call => {
 });
 
 async function prosesDataServer() {
-    async function pingIP() {
-        try {
-            pings = await ping.promise.probe(endpoint);
-            console.log(pings);
-            ms = pings.time;
-        } catch (error) {
-            console.error('Error pinging IP:', error);
-        }
-    }
-
-    pingIP();
-
     try {
         const ip = endpoint;
         const url = `http://${ip}:4567/v1/server`;
@@ -219,19 +205,12 @@ async function prosesDataServer() {
 Informasi Server:
 Versi server: ${version}
 Status: 🟢 Online
-Ping: ${ms} ms
 TPS Server: ${parseFloat(tps).toFixed(1)}
 Pemain Aktif: ${onlinePlayers}/${maxPlayers}
 Memori Total: ${bytesToGB(totalMemory)} GB
 Memori Bebas: ${bytesToGB(freeMemory)} GB
 Memori Maksimal: ${bytesToGB(maxMemory)} GB`.trim() : 'Status: 🔴 Offline';
-
-        if (flagisgroup) {
-            await whatsapp.sendMessage(id_group, statusOnline);
-        } else {
-            await whatsapp.sendMessage(pengirim, statusOnline);
-        }
-        flagisgroup = false;
+await whatsapp.sendMessage(pengirim, statusOnline);
     } catch (error) {
         console.error('Error fetching server data:', error.message);
         await whatsapp.sendMessage(pengirim, "Terjadi kesalahan saat mengambil data server.");
@@ -354,7 +333,6 @@ app.post('/webhook', async (req, res) => {
         res.status(500).send('Terjadi kesalahan dalam pemrosesan webhook');
     }
 });
-
 
 app.listen(port, () => {
     console.log(`Server berjalan di http://localhost:${port}`);
