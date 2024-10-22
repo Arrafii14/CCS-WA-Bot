@@ -25,7 +25,18 @@ let incomingMessages = "";
 
 const whatsapp = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: { headless: true }
+    puppeteer: {
+        headless: true,
+        args: [
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-setuid-sandbox',
+            '--no-first-run',
+            '--no-sandbox',
+            '--no-zygote',
+            '--single-process'
+        ]
+    }
 });
 
 console.log('\nSedang Menghubungkan ke Whatsapp Web........\n');
