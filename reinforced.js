@@ -18,9 +18,10 @@ const data = fs.readFileSync('pengaturan.json', 'utf8');
 const variables = JSON.parse(data);
 let flagisgroup = false;
 
-const { nomor_tujuan, id_admin, endpoint, log_group, login_group} = variables;
+const { nomor_tujuan, id_group, id_admin, endpoint, log_group, login_group} = variables;
 let pengirim = "";
 let incomingMessages = "";
+let chatID = "";
 
 const whatsapp = new Client({
     authStrategy: new LocalAuth(),
@@ -81,49 +82,54 @@ whatsapp.on('message', async msg => {
 
     if (incomingMessages.includes("!bot") && chat.isGroup) {
         console.log("Pesan Grup: " + incomingMessages + "\n");
-        if (incomingMessages.includes('server')) {
-            await prosesDataServer();
-        } else if (incomingMessages.includes('banned')) {
-            await kirimBannedPlayers();
-        } else if (incomingMessages.includes('online')) {
-            await kirimOnlinePlayers();
-        } else if (incomingMessages.includes('allplayers')) {
-            await kirimAllplayers();
-        }
+        
+        const senderId = msg.from; // Mendapatkan ID pengirim
+    
+        if ([id_admin, id_group, log_group, login_group].includes(senderId)) {
+            
+            console.log("Pesan berasal dari grup yang dikenali");
 
-        else if (incomingMessages.includes("!bot exec") && pengirim == id_admin) {
-            const command = incomingMessages.replace("!bot exec ", "").trim();
-            try {
-                const ip = endpoint;
-                const url = `http://${ip}:4567/v1/server/exec`;
-                const response = await axios.post(url, new URLSearchParams({
-                    command: command
-                }), {
-                    headers: {
-                        'accept': '*/*',
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    }
-                });
-                console.log("Command executed");
-                whatsapp.sendMessage(pengirim, `Berhasil dikirim`);
-            } catch (error) {
-                console.error("Error executing command:", error);
-                whatsapp.sendMessage(pengirim, `Gagal dikirim`);
+            if (incomingMessages.includes('server')) {
+                await prosesDataServer();
+            } else if (incomingMessages.includes('banned')) {
+                await kirimBannedPlayers();
+            } else if (incomingMessages.includes('online')) {
+                await kirimOnlinePlayers();
+            } else if (incomingMessages.includes('allplayers')) {
+                await kirimAllplayers();
+            } else if (incomingMessages.includes("!bot exec") && senderId === id_admin) {
+                const command = incomingMessages.replace("!bot exec ", "").trim();
+                try {
+                    const ip = endpoint;
+                    const url = `http://${ip}:4567/v1/server/exec`;
+                    const response = await axios.post(url, new URLSearchParams({
+                        command: command
+                    }), {
+                        headers: {
+                            'accept': '*/*',
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    });
+                    console.log("Command executed");
+                    whatsapp.sendMessage(senderId, `Berhasil dikirim`);
+                } catch (error) {
+                    console.error("Error executing command:", error);
+                    whatsapp.sendMessage(senderId, `Gagal dikirim`);
+                }
+            } else {
+                const result = `
+    Gunakan perintah berikut:
+    Gunakan !bot dan perintahnya, Misal:
+    - !bot server
+    - !bot banned
+    - !bot online
+    - !bot allplayers`;
+                whatsapp.sendMessage(senderId, result.trim());
+                console.log("Kesalahan perintah!, mohon " + result + "\n");
             }
         }
-
-        else {
-            const result = `
-Gunakan perintah berikut:
-Gunakan !bot dan perintahnya, Misal:
-- !bot server
-- !bot banned
-- !bot online
-- !bot allplayers`;
-            whatsapp.sendMessage(pengirim, result.trim());
-            console.log("Kesalahan perintah!, mohon " + result + "\n");
-        }
     }
+    
     else if (incomingMessages.startsWith('.ai analisa') || incomingMessages.startsWith('.ai')) {
         let queryStartIndex = incomingMessages.startsWith('.ai analisa') ? incomingMessages.indexOf('.ai analisa') + 11 : incomingMessages.indexOf('.ai') + 3;
         let query = incomingMessages.slice(queryStartIndex).trim();
@@ -142,6 +148,10 @@ bot hanya bisa digunakan dalam komunitas.
 Bergabunglah bersama kami di: https://chat.whatsapp.com/HGdDgEmqQ6fGkYOQw6E1Tz`;
         await whatsapp.sendMessage(pengirim, welcomeMessage.trim());
     }
+
+    else{
+        console.log("Pesan bukan berasal dari grup yang dikenali");
+    }
 });
 
 whatsapp.on('disconnected', reason => {
@@ -152,8 +162,8 @@ whatsapp.on('disconnected', reason => {
 whatsapp.on('group_join', async notification => {
     try {
         const chat = await notification.getChat();
-        const newMember = notification.from;
-
+        chatID = chat.id._serialized;
+        console.log(`ChatID: ${chatID}`);
         const welcomeMessage = `
 Hai bro/sis!
 Selamat gabung di grup "Craft Cheddar Server"! Nih, aturan singkat yang perlu lo tahu:
@@ -216,14 +226,13 @@ Semoga betah dan have fun di sini! Ada apa-apa, langsung tanya aja.
 Selamat gabung, bro/sis!`;
 
         setTimeout(async () => {
+        if (chatID === id_group) {
             await chat.sendMessage(welcomeMessage.trim());
-            // Membuat sticker media dari file path yang sesuai
             const stickerMedia1 = MessageMedia.fromFilePath('/home/container/sticker/welcome1.webp');
             const stickerMedia2 = MessageMedia.fromFilePath('/home/container/sticker/welcome2.webp');
-
-            // Mengirim sticker sebagai sticker WhatsApp
             await chat.sendMessage(stickerMedia1, { sendMediaAsSticker: true });
             await chat.sendMessage(stickerMedia2, { sendMediaAsSticker: true });
+        }
         }, 3000);
 
     } catch (error) {

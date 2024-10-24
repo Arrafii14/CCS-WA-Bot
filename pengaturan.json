@@ -1,10 +1,11 @@
 {
-  "nomor_tujuan": "6285142040116@c.us",
-  "nomor_bot": "6289524550481",
-  "log_group": "120363295651513200@g.us",
-  "login_group": "120363333400892895@g.us",
-  "id_admin": "120363305319231794@g.us",
-  "API": "ptla_qIX0lXlomCUCapDnJt8QihPf9cYIH8W67BHzAxgKhlb",
-  "id_server": "de3d3458",
-  "endpoint": "188.166.252.145"
+  "nomor_tujuan": "// Nomor tujuan untuk mengirim pesan",  
+  "nomor_bot": "// Nomor bot WhatsApp",
+  "log_group": "// ID grup untuk log",
+  "login_group": "// ID grup untuk login",
+  "id_group": "// ID grup utama",
+  "id_admin": "// ID admin grup",
+  "API": "// Kunci API untuk akses",
+  "id_server": "// ID server",
+  "endpoint": "// Endpoint server"
 }
