@@ -3,6 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const { Client, LocalAuth } = require('whatsapp-web.js');
+const { MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const yaml = require('js-yaml');
 
@@ -17,7 +18,7 @@ const data = fs.readFileSync('pengaturan.json', 'utf8');
 const variables = JSON.parse(data);
 let flagisgroup = false;
 
-const { nomor_tujuan, id_admin, endpoint, log_group } = variables;
+const { nomor_tujuan, id_admin, endpoint, log_group, login_group} = variables;
 let pengirim = "";
 let incomingMessages = "";
 
@@ -155,7 +156,7 @@ whatsapp.on('group_join', async notification => {
 
         const welcomeMessage = `
 Hai bro/sis!
-Selamat gabung di grup "CCS"! Nih, aturan singkat yang perlu lo tahu:
+Selamat gabung di grup "Craft Cheddar Server"! Nih, aturan singkat yang perlu lo tahu:
 - Toxic boleh (secukupnya)
 - Jomok DILARANG (Stop Normalisasi Jokes Jomok)
 - Grief = Ban
@@ -171,11 +172,58 @@ Pas masuk server/world, jangan lupa register kayak gini:
 Tiap kali masuk, jangan lupa password-nya:
 1. Klik T atau CHAT
 2. Ketik /login (password yang lo buat pas register)
+
+Java Version [Voice Chat]
+Address: play.craftcheddar.my.id
+Port: 25565
+
+Bedrock/PE
+Address: play.craftcheddar.my.id
+Port: 19132
+
+Maps
+maps.craftcheddar.my.id
+
+Setelah masuk jangan lupa Registrasi
+/register (password baru) (password baru)
+
+Untuk *login*​
+/login (password kamu)
+
+Bingung mau kemana? bisa klik NPC pas spawn atau /rtp
+
+Mau teleport ke temen?
+/tpa (gametag tmn)
+
+Nerima teleport
+/tpaaccept
+
+cara sethome, pegang gold shovel/sekop emas, klik kanan atau tap pada tiap pojok block (minimal 100 block/10x10 block). klo udh ya sethome
+/sethome (nama)
+
+cara ke home
+/home atau /home (nama home)
+
+cek home kamu
+/homes atau /listhome
+
+cara hapus home
+/delhome atau /delhome (nama)
+
+mati? pengen balik lagi?
+/back
 Semoga betah dan have fun di sini! Ada apa-apa, langsung tanya aja.
 Selamat gabung, bro/sis!`;
 
         setTimeout(async () => {
             await chat.sendMessage(welcomeMessage.trim());
+            // Membuat sticker media dari file path yang sesuai
+            const stickerMedia1 = MessageMedia.fromFilePath('/home/container/sticker/welcome1.webp');
+            const stickerMedia2 = MessageMedia.fromFilePath('/home/container/sticker/welcome2.webp');
+
+            // Mengirim sticker sebagai sticker WhatsApp
+            await chat.sendMessage(stickerMedia1, { sendMediaAsSticker: true });
+            await chat.sendMessage(stickerMedia2, { sendMediaAsSticker: true });
         }, 3000);
 
     } catch (error) {
@@ -317,11 +365,14 @@ app.post('/webhook', async (req, res) => {
             const { displayName, address } = player;
 
             console.log('Extracted Values:', { displayName, address, eventType });
-
+            
             const formattedMessage = `Nama: ${displayName}\nAlamat IP: ${address}\nAktivitas: ${eventType}`;
             console.log('Pesan yang akan dikirim:', formattedMessage);
-
-            await whatsapp.sendMessage(log_group, formattedMessage);
+            await whatsapp.sendMessage(log_group, formattedMessage);            
+            
+            const formattedMessagelogin = `Nama: ${displayName}\nAktivitas: ${eventType}`;
+            console.log('Pesan yang akan dikirim:', formattedMessagelogin);
+            await whatsapp.sendMessage(login_group, formattedMessagelogin);
 
             res.status(200).send('Sukses menerima dan memproses webhook');
         } else {
