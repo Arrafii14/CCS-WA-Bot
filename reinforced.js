@@ -9,6 +9,12 @@ const yaml = require('js-yaml');
 
 const words = yaml.load(fs.readFileSync('words.yml', 'utf8'));
 
+let serverStatus = null;
+let lastGroupStatus = null;
+
+const groupTitleOnline = 'Craft Cheddar Server 🟢 [Adventure]';
+const groupTitleOffline = 'Craft Cheddar Server 🔴 [Adventure]';
+
 const app = express();
 const port = 3500;
 
@@ -39,6 +45,14 @@ const whatsapp = new Client({
     }
 });
 
+console.log(`
+   ____ ____ ____    ____        _   
+  / ___/ ___/ ___|  | __ )  ___ | |_ 
+ | |  | |   \___ \  |  _ \ / _ \| __|
+ | |__| |___ ___) | | |_) | (_) | |_ 
+  \____\____|____/  |____/ \___/ \__|
+ by: Arrafii14                                    
+`);
 console.log('\nSedang Menghubungkan ke Whatsapp Web........\n');
 whatsapp.initialize();
 
@@ -61,6 +75,7 @@ whatsapp.on('auth_failure', msg => {
 
 whatsapp.on('ready', () => {
     console.log('READY\nTerhubung!\n');
+    setInterval(checkServerStatus, 5 * 60 * 1000);
 });
 
 whatsapp.on('message', async msg => {
@@ -143,9 +158,13 @@ whatsapp.on('message', async msg => {
     }
     else if (!chat.isGroup) {
         const welcomeMessage = `
-Halo, bot adalah bagian dari server Minecraft "Craft Cheddar SMP".
+Halo, bot adalah bagian dari server Minecraft "Craft Cheddar Server".
 bot hanya bisa digunakan dalam komunitas.
-Bergabunglah bersama kami di: https://chat.whatsapp.com/HGdDgEmqQ6fGkYOQw6E1Tz`;
+
+Bergabunglah bersama kami digrup WhatsApp kami: https://chat.whatsapp.com/HGdDgEmqQ6fGkYOQw6E1Tz.
+
+Untuk bantuan asisten ai dapat digunakan diluar komunitas, gunakan .ai pada awalan
+pesan untuk berbincang.`;
         await whatsapp.sendMessage(pengirim, welcomeMessage.trim());
     }
 
@@ -164,6 +183,15 @@ whatsapp.on('group_join', async notification => {
         const chat = await notification.getChat();
         chatID = chat.id._serialized;
         console.log(`ChatID: ${chatID}`);
+
+        const newUserID = notification.id.participant;
+        const welcomeText = `Hai @${newUserID.replace('@c.us', '')}!\nSelamat datang di grup! Semoga betah dan have fun di sini!\n😇😊`;
+        const newUserContact = await whatsapp.getContactById(newUserID);
+
+        await chat.sendMessage(welcomeText, {
+            mentions: [newUserContact]
+        });
+     
         const welcomeMessage = `
 Hai bro/sis!
 Selamat gabung di grup "Craft Cheddar Server"! Nih, aturan singkat yang perlu lo tahu:
@@ -241,11 +269,28 @@ Selamat gabung, bro/sis!`;
 });
 
 let rejectCalls = true;
+
 whatsapp.on('call', async call => {
     console.log('Panggilan masuk, menolak panggilan.', call);
+    
     if (rejectCalls) await call.reject();
-    await whatsapp.sendMessage(call.from, `${call.fromMe ? 'Panggilan Keluar' : 'Panggilan Masuk'} dari ${call.from}, tipe panggilan ${call.isGroup ? 'grup' : ''} ${call.isVideo ? 'video' : 'suara'}. ${rejectCalls ? 'Panggilan ditolak otomatis oleh script.' : ''}`);
+    
+    const callerNumber = call.from.replace('@c.us', '');
+    const callTime = new Date(call.timestamp * 1000);
+    const formattedTime = callTime.toLocaleString('id-ID', {
+        timeZone: 'Asia/Makassar', // Zona waktu WITA
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+
+    await whatsapp.sendMessage(call.from, `${call.fromMe ? 'Panggilan Keluar' : 'Panggilan Masuk'} dari ${callerNumber}.\nWaktu: ${formattedTime}\nTipe panggilan: ${call.isGroup ? 'grup' : ''} ${call.isVideo ? 'video' : 'suara'}.\n${rejectCalls ? 'Panggilan ditolak otomatis oleh sistem.' : ''}`);
 });
+
 
 async function prosesDataServer() {
     try {
@@ -397,3 +442,40 @@ app.post('/webhook', async (req, res) => {
 app.listen(port, () => {
     console.log(`Server berjalan di http://localhost:${port}`);
 });
+
+async function checkServerStatus() {
+    try {
+        const serverEndpoint = `http://${endpoint}:4567/v1/server`;
+        const response = await axios.get(serverEndpoint);
+        if (response.status === 200) {
+            serverStatus = 'online';
+            console.log("server online");
+        } else {
+            serverStatus = 'offline';
+            console.log("server offline");
+        }
+    } catch (error) {
+        serverStatus = 'offline';
+        console.log("server offline");
+    }
+
+    if (serverStatus !== lastGroupStatus) {
+        console.log("status flag pengecekan server tidak sama!");
+        updateGroupTitle(serverStatus);
+        lastGroupStatus = serverStatus;
+    }
+}
+
+async function updateGroupTitle(status) {
+    const chat = await whatsapp.getChatById(id_group);
+
+    if (status === 'online') {
+        await chat.setSubject(groupTitleOnline);
+        console.log(`Judul grup diubah menjadi: ${groupTitleOnline}`);
+    } else {
+        await chat.setSubject(groupTitleOffline);
+        console.log(`Judul grup diubah menjadi: ${groupTitleOffline}`);
+    }
+
+    console.log(`Status grup sekarang: ${status}`);
+}
