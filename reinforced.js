@@ -12,8 +12,8 @@ const words = yaml.load(fs.readFileSync('words.yml', 'utf8'));
 let serverStatus = null;
 let lastGroupStatus = null;
 
-const groupTitleOnline = 'Craft Cheddar Server 🟢 [Adventure]';
-const groupTitleOffline = 'Craft Cheddar Server 🔴 [Adventure]';
+const groupTitleOnline = 'Craft Cheddar Server ✅';
+const groupTitleOffline = 'Craft Cheddar Server ❌';
 
 const app = express();
 const port = 3500;
@@ -24,7 +24,7 @@ const data = fs.readFileSync('pengaturan.json', 'utf8');
 const variables = JSON.parse(data);
 let flagisgroup = false;
 
-const { nomor_tujuan, id_group, id_admin, endpoint, log_group, login_group} = variables;
+const { nomor_tujuan, id_group, id_admin, endpoint, log_group, login_group, lobby, mix, pure, oneblock} = variables;
 let pengirim = "";
 let incomingMessages = "";
 let chatID = "";
@@ -38,9 +38,9 @@ const whatsapp = new Client({
             '--disable-dev-shm-usage',
             '--disable-setuid-sandbox',
             '--no-first-run',
-            '--no-sandbox',
-            '--no-zygote',
-            '--single-process'
+            '--no-sandbox'
+           
+
         ]
     }
 });
@@ -75,7 +75,7 @@ whatsapp.on('auth_failure', msg => {
 
 whatsapp.on('ready', () => {
     console.log('READY\nTerhubung!\n');
-    setInterval(checkServerStatus, 5 * 60 * 1000);
+    setInterval(checkServerStatus, 5 * 60 * 100);
 });
 
 whatsapp.on('message', async msg => {
@@ -88,13 +88,13 @@ whatsapp.on('message', async msg => {
     const messageWords = incomingMessages.split(/\s+/); // Membagi pesan menjadi array kata-kata
 
     for (const word of words) {
-        if (messageWords.includes(word)) {
+        if (messageWords.some(msgWord => msgWord === word)) { // Mengecek kecocokan kata yang tepat
             await msg.delete(true);
             console.log(`Pesan dengan kata "${word}" telah dihapus.`);
             break;
         }
     }
-
+    
     if (incomingMessages.includes("!bot") && chat.isGroup) {
         console.log("Pesan Grup: " + incomingMessages + "\n");
         
@@ -143,6 +143,9 @@ whatsapp.on('message', async msg => {
                 console.log("Kesalahan perintah!, mohon " + result + "\n");
             }
         }
+            else {
+        console.log("Pesan bukan berasal dari grup yang dikenali");
+    }
     }
     
     else if (incomingMessages.startsWith('.ai analisa') || incomingMessages.startsWith('.ai')) {
@@ -169,7 +172,7 @@ pesan untuk berbincang.`;
     }
 
     else{
-        console.log("Pesan bukan berasal dari grup yang dikenali");
+        console.log("Pesan tak sesuai perintah!");
     }
 });
 
@@ -192,8 +195,7 @@ whatsapp.on('group_join', async notification => {
             mentions: [newUserContact]
         });
      
-        const welcomeMessage = `
-Hai bro/sis!
+        const welcomeMessage = `Hai bro/sis!
 Selamat gabung di grup "Craft Cheddar Server"! Nih, aturan singkat yang perlu lo tahu:
 - Toxic boleh (secukupnya)
 - Jomok DILARANG (Stop Normalisasi Jokes Jomok)
@@ -211,7 +213,6 @@ Tiap kali masuk, jangan lupa password-nya:
 1. Klik T atau CHAT
 2. Ketik /login (password yang lo buat pas register)
 
-Java Version [Voice Chat]
 Address: play.craftcheddar.my.id
 Port: 25565
 
@@ -219,13 +220,13 @@ Bedrock/PE
 Address: play.craftcheddar.my.id
 Port: 19132
 
-Maps
-maps.craftcheddar.my.id
+Discord
+https://discord.gg/uDDf5p6h
 
 Setelah masuk jangan lupa Registrasi
 /register (password baru) (password baru)
 
-Untuk *login*​
+Untuk login
 /login (password kamu)
 
 Bingung mau kemana? bisa klik NPC pas spawn atau /rtp
@@ -248,7 +249,7 @@ cek home kamu
 cara hapus home
 /delhome atau /delhome (nama)
 
-mati? pengen balik lagi?
+mati? pengen balik lagi?
 /back
 Semoga betah dan have fun di sini! Ada apa-apa, langsung tanya aja.
 Selamat gabung, bro/sis!`;
@@ -256,10 +257,8 @@ Selamat gabung, bro/sis!`;
         setTimeout(async () => {
         if (chatID === id_group) {
             await chat.sendMessage(welcomeMessage.trim());
-            const stickerMedia1 = MessageMedia.fromFilePath('/home/container/sticker/welcome1.webp');
-            const stickerMedia2 = MessageMedia.fromFilePath('/home/container/sticker/welcome2.webp');
+            const stickerMedia1 = MessageMedia.fromFilePath('/home/container/sticker/welcome1.webp');            
             await chat.sendMessage(stickerMedia1, { sendMediaAsSticker: true });
-            await chat.sendMessage(stickerMedia2, { sendMediaAsSticker: true });
         }
         }, 3000);
 
@@ -291,32 +290,66 @@ whatsapp.on('call', async call => {
     await whatsapp.sendMessage(call.from, `${call.fromMe ? 'Panggilan Keluar' : 'Panggilan Masuk'} dari ${callerNumber}.\nWaktu: ${formattedTime}\nTipe panggilan: ${call.isGroup ? 'grup' : ''} ${call.isVideo ? 'video' : 'suara'}.\n${rejectCalls ? 'Panggilan ditolak otomatis oleh sistem.' : ''}`);
 });
 
-
 async function prosesDataServer() {
     try {
-        const ip = endpoint;
-        const url = `http://${ip}:4567/v1/server`;
+        // Membuat objek untuk menyimpan URL dari masing-masing server
+        const endpoints = {
+            lobby: `${lobby}/v1/server`,             // Lobby
+            survivalMix: `${mix}/v1/server`,         // Survival Mix
+            pureSurvival: `${pure}/v1/server`,       // Pure Survival
+            oneBlock: `${oneblock}/v1/server`        // One Block
+        };
 
-        const response = await axios.get(url);
-        const { tps, health, maxPlayers, onlinePlayers, version } = response.data;
-        const { totalMemory, maxMemory, freeMemory } = health;
+        // Menyusun data server untuk setiap endpoint
+        const serverData = await Promise.all(
+            Object.entries(endpoints).map(async ([key, url]) => {
+                try {
+                    const response = await axios.get(url);
+                    const { tps, health, maxPlayers, onlinePlayers, version } = response.data;
+                    const { totalMemory, maxMemory, freeMemory } = health;
 
-        const bytesToGB = bytes => (bytes / (1024 ** 3)).toFixed(2);
+                    const bytesToGB = bytes => (bytes / (1024 ** 3)).toFixed(2);
 
-        const statusOnline = response.status === 200 ? `
-Informasi Server:
+                    // Menyusun pesan status server
+                    const statusOnline = response.status === 200 ? `Informasi server ${formatServerName(key)}:
 Versi server: ${version}
 Status: 🟢 Online
 TPS Server: ${parseFloat(tps).toFixed(1)}
 Pemain Aktif: ${onlinePlayers}/${maxPlayers}
 Memori Total: ${bytesToGB(totalMemory)} GB
 Memori Bebas: ${bytesToGB(freeMemory)} GB
-Memori Maksimal: ${bytesToGB(maxMemory)} GB`.trim() : 'Status: 🔴 Offline';
-await whatsapp.sendMessage(pengirim, statusOnline);
+Memori Maksimal: ${bytesToGB(maxMemory)} GB`.trim() : `Informasi server ${formatServerName(key)}:
+Status: 🔴 Offline`;
+
+                    return { key, status: statusOnline };
+                } catch (error) {
+                    console.error(`Error fetching data from ${key}:`, error.message);
+                    return { key, status: `Informasi server ${formatServerName(key)}: Status: 🔴 Offline` };
+                }
+            })
+        );
+
+        // Menyusun pesan lengkap dari semua informasi server
+        let message = serverData.map(data => data.status).join('\n\n');
+
+        // Mengirimkan pesan ke WhatsApp
+        await whatsapp.sendMessage(pengirim, message);
+
     } catch (error) {
-        console.error('Error fetching server data:', error.message);
+        console.error('Error in processing server data:', error.message);
         await whatsapp.sendMessage(pengirim, "Terjadi kesalahan saat mengambil data server.");
     }
+}
+
+// Fungsi untuk memformat nama server
+function formatServerName(key) {
+    const serverNames = {
+        lobby: "Lobby",
+        survivalMix: "Survival Mix",
+        pureSurvival: "Pure Survival",
+        oneBlock: "One Block"
+    };
+    return serverNames[key] || key;
 }
 
 async function kirimBannedPlayers() {
@@ -356,23 +389,63 @@ async function kirimAllplayers() {
 
 async function kirimOnlinePlayers() {
     try {
-        const ip = endpoint;
-        const url = `http://${ip}:4567/v1/players`;
-        const response = await axios.get(url);
-        const players = response.data;
+        // Mengambil data pemain dari setiap endpoint
+        const endpoints = {
+            lobby: `${lobby}/v1/players`,            // Lobby
+            survivalMix: `${mix}/v1/players`,        // Survival Mix
+            pureSurvival: `${pure}/v1/players`,      // Pure Survival
+            oneBlock: `${oneblock}/v1/players`       // One Block
+        };
 
-        const playerNames = players.map(player => `- ${player.displayName}`);
-        const message = `Jumlah Pemain Online: ${playerNames.length}\n\n${playerNames.join('\n')}`;
+        const playerData = await Promise.all(
+            Object.entries(endpoints).map(async ([key, url]) => {
+                try {
+                    const response = await axios.get(url);
+                    return { key, players: response.data };
+                } catch (error) {
+                    console.error(`Error fetching data from ${key}:`, error.message);
+                    return { key, players: [] };
+                }
+            })
+        );
+
+        // Membuat pesan dengan daftar pemain
+        let message = `Pemain Online: ${playerData.reduce((total, data) => total + data.players.length, 0)}\n\n`;
+
+        playerData.forEach(data => {
+            const serverName = formatServerName(data.key);
+            message += `${serverName} (${data.players.length} pemain)\n`;
+            if (data.players.length > 0) {
+                const playerNames = data.players.map(player => `- ${player.displayName}`).join('\n');
+                message += `${playerNames}\n\n`;
+            } else {
+                message += "Tidak ada pemain online.\n\n";
+            }
+        });
+
+        // Mengirimkan pesan ke WhatsApp
         await whatsapp.sendMessage(pengirim, message);
+
     } catch (error) {
-        console.error('Error fetching online players data:', error.message);
+        console.error('Error in sending player data:', error.message);
         await whatsapp.sendMessage(pengirim, "Terjadi kesalahan saat mengambil data pemain online.");
     }
 }
 
+// Fungsi untuk memformat nama server
+function formatServerName(key) {
+    const serverNames = {
+        lobby: "Lobby",
+        survivalMix: "Survival Mix",
+        pureSurvival: "Pure Survival",
+        oneBlock: "One Block"
+    };
+    return serverNames[key] || key;
+}
+
 async function prosesAI(query, msg) {
     const apiUrl = 'https://api.pawan.krd/cosmosrp/v1/chat/completions';
-    const apiKey = 'pk-hREqlIaOgfPicvstJeEaJYRPVcCbIuKYcuemGghAYgtLKPQc';
+    const apiKey = 'pk-xFnjfbJgpfzoESvdVgtgiMVaJEuCrAjKNoKMipYMQZXRALgf';
 
     const data = {
         model: "cosmosrp",
@@ -380,7 +453,7 @@ async function prosesAI(query, msg) {
         messages: [
             {
                 role: "system",
-                content: "Kamu adalah asisten ahli dalam pengetahuan umum."
+                content: "Namamu Kuving, Kamu adalah asisten ahli dalam pengetahuan umum namun fokus pada IT dan OT, juga gaming minecraft, fokusmu memberikan bantuan pada komunitas minecraft"
             },
             {
                 role: "user",
@@ -409,28 +482,34 @@ async function prosesAI(query, msg) {
     }
 }
 
-app.post('/webhook', async (req, res) => {
+// Endpoint webhook
+app.post('/webhook/:server', async (req, res) => {
     try {
+        const { server } = req.params;
+        const serverName = serverNames[`/webhook/${server}`];
         const payload = req.body;
+
+        if (!serverName) {
+            return res.status(404).send('Server tidak ditemukan');
+        }
+
         console.log('Payload dari webhook:', JSON.stringify(payload, null, 2));
 
         if (payload && payload.player && payload.eventType) {
             const { player, eventType } = payload;
             const { displayName, address } = player;
 
-            console.log('Extracted Values:', { displayName, address, eventType });
-            
-            const formattedMessage = `Nama: ${displayName}\nAlamat IP: ${address}\nAktivitas: ${eventType}`;
-            console.log('Pesan yang akan dikirim:', formattedMessage);
-            await whatsapp.sendMessage(log_group, formattedMessage);            
-            
-            const formattedMessagelogin = `Nama: ${displayName}\nAktivitas: ${eventType}`;
-            console.log('Pesan yang akan dikirim:', formattedMessagelogin);
-            await whatsapp.sendMessage(login_group, formattedMessagelogin);
+            // Format pesan untuk log_group
+            const formattedMessageLogGroup = `${displayName} telah bergabung ke server ${serverName} dengan alamat IP ${address}`;
+            await whatsapp.sendMessage(log_group, formattedMessageLogGroup);
+
+            // Format pesan untuk login_group
+            const formattedMessageLoginGroup = `${displayName} telah bergabung ke server ${serverName}`;
+            await whatsapp.sendMessage(login_group, formattedMessageLoginGroup);
 
             res.status(200).send('Sukses menerima dan memproses webhook');
         } else {
-            console.error('Invalid payload structure');
+            console.error('Struktur payload tidak valid');
             res.status(400).send('Invalid payload structure');
         }
     } catch (error) {

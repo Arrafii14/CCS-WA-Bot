@@ -6,6 +6,10 @@
   "id_group": "120363284620264242@g.us",
   "id_admin": "120363305319231794@g.us",
   "API": "ptla_qIX0lXlomCUCapDnJt8QihPf9cYIH8W67BHzAxgKhlb",
-  "id_server": "de3d3458",
-  "endpoint": "188.166.252.145"
+  "id_server": "796ba020",
+  "endpoint": "188.166.252.145",
+  "lobby": "http://188.166.252.145:4567",
+  "mix": "http://145.223.21.234:4567",
+  "pure": "http://145.223.21.234:4568",
+  "oneblock": "http://145.223.21.234:4569"
 }
